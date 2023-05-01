@@ -1,0 +1,10 @@
+# Static
+#ansible_python_interpreter: "/usr/bin/python3"
+network_path: /etc/sysconfig/network-scripts
+q_path: /etc/modules-load.d/8021q.conf
+dhcpd_volume_path: /etc/dhcp
+dhcpd_lease_path: /var/lib/dhcpd
+iptables_save_path: /etc/sysconfig/iptables
+systemd_path: /etc/systemd/system
+dhcpd_image: docker.io/modularitycontainers/dhcp-server
+# Edit

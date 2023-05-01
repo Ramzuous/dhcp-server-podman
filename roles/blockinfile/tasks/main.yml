@@ -1,0 +1,6 @@
+---
+- name: blockinfile to {{ path }} state {{ state }}
+  blockinfile:
+    path: "{{ path }}"
+    block: "{{ block }}"
+    state: "{{ state }}"

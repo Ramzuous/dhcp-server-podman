@@ -1,0 +1,5 @@
+---    
+- name: Set state {{ state }} to path {{ path }}
+  community.general.iptables_state:
+    state: "{{ state }}"
+    path: "{{ path }}"

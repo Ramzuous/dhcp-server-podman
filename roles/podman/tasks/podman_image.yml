@@ -1,0 +1,5 @@
+---
+- name: podman immage {{ name }} state {{ state }}
+  containers.podman.podman_image:
+    name: "{{ name }}"
+    state: "{{ state }}"

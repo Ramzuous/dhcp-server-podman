@@ -1,0 +1,49 @@
+- hosts: dhcp-server-podman
+  gather_facts: false
+  vars_files:
+    - vars_files/var_file_strings.yml
+  tasks:
+    - find:
+        path: "{{ network_path }}"
+        contains: "IPADDR={{ item }}.*"
+      with_items: "{{ networks_to_delete_vars }}"
+      register: res
+    - include_role:
+        name: file
+      vars:
+        path: "{{ item.files | map(attribute='path') | join('') }}"
+        state: absent
+      with_items: "{{ res.results }}"
+      when: item.matched==1
+    - include_role:
+        name: lineinfile
+        tasks_from: lineinfile_with_regexp
+      vars:
+        path: "{{ dhcpd_volume_path }}/dhcpd.conf"
+        regexp: '.{{ item }}.'
+        state: absent
+      with_items: "{{ networks_to_delete_vars }}"
+    - include_role:
+        name: shell
+      vars:
+        shell: sed -i '/lease {{ item }}/,/}/{//!d}' "{{ dhcpd_lease_path }}/dhcpd.leases"
+      with_items: "{{ networks_to_delete_vars }}"
+    - include_role:
+        name: replace
+      vars:
+        path: "{{ dhcpd_lease_path }}/dhcpd.leases"
+        regexp: 'lease {{ item }}.*\n[^\n]+'
+        replace: ''
+      with_items: "{{ networks_to_delete_vars }}"  
+    - include_role:
+        name: systemd
+      vars:
+        name: "{{ item }}"
+        state: restarted
+        enabled: yes
+        daemonReload: yes
+      with_items:
+        - NetworkManager
+        - container-{{ dhcpd_name }}
+    - reboot:
+      timeout: 300

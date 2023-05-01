@@ -1,0 +1,141 @@
+- hosts: dhcp-server-podman
+  gather_facts: false
+  vars_files:
+    - vars_files/var_file_strings.yml
+  tasks:
+    - include_role:
+        name: dnf
+      vars:
+        name: "{{ item }}" 
+        state: latest
+      with_items:
+        - "*"
+        - python3 
+        - python3-pip 
+        - crun 
+        - runc 
+        - iptables-services 
+    - include_role:
+        name: dnf
+      vars:        
+        name: podman 
+        state: present
+    - include_role:
+        name: pip
+      vars:
+        name: pexpect
+        state: present
+    - include_role:
+        name: podman
+        tasks_from: podman_image
+      vars:
+        name: "{{ dhcpd_image }}"
+        state: present
+    - include_role:
+        name: file
+      vars:
+        path: "{{ item.path }}"
+        state: "{{ item.state }}"
+      with_items:
+        - path: "{{ q_path }}"
+          state: touch
+        - path: "{{ dhcpd_volume_path }}"
+          state: directory
+        - path: "{{ dhcpd_volume_path }}/dhcpd.conf"
+          state: touch
+        - path: "{{ dhcpd_lease_path }}"
+          state: directory
+    - include_role:
+        name: file
+      vars:
+        path: "{{ network_path }}/ifcfg-{{ item.interface }}"
+        state: touch
+      with_items:
+        - "{{ dhcp_network_vars }}"
+    - include_role:
+        name: sysctl
+      vars:
+        name: net.ipv4.ip_forward
+        value: '1'
+        sysctl_set: yes
+        state: present
+        reload: yes
+    - include_role:
+        name: blockinfile
+      vars:
+        path: "{{ network_path }}/ifcfg-{{ item.interface }}"
+        state: present
+        block: |
+          ONBOOT=yes
+          VLAN=yes
+          BOOTPROTO=none
+          DEVICE={{ item.interface }}
+          IPADDR={{ item.subnet }}.1
+          NETMASK={{ item.netmask }}
+      with_items:
+        - "{{ dhcp_network_vars }}"
+    - include_role:
+        name: lineinfile
+      vars:
+        path: "{{ q_path }}"
+        line: 8021q
+    - include_role:
+        name: lineinfile
+      vars:
+        path: "{{ dhcpd_volume_path }}/dhcpd.conf"
+        line: "{{ item }}"
+      with_items:
+        - option domain-search "{{ option_domain_name }}";
+        - option domain-name-servers {{ option_domain_name_servers }};        
+        - default-lease-time {{ default_lease_time }};
+        - max-lease-time {{ max_lease_time }};
+    - include_role:
+        name: lineinfile
+      vars:
+        path: "{{ dhcpd_volume_path }}/dhcpd.conf"
+        line: "subnet {{ item.subnet }}.0 netmask {{ item.netmask }} { range {{ item.ip_range }};option routers {{ item.subnet }}.1; }"
+      with_items:
+        - "{{ dhcp_network_vars }}"
+    - include_role:
+        name: podman
+        tasks_from: podman_container_info
+      vars:
+        name: "{{ dhcpd_name }}"
+    - include_role:
+        name: podman
+      with_items:
+        - name: "{{ dhcpd_name }}"
+          image: "{{ dhcpd_image }}"
+          state: started
+          network: host
+          dhcpd_volume_path: "{{ dhcpd_volume_path }}"
+          dhcpd_lease_path: "{{ dhcpd_lease_path }}"
+          generate_systemd_new: yes
+          generate_systemd_path: "{{ systemd_path }}"
+          generate_systemd_restart_policy: always
+      when: not checkContainer.stderr==""
+    - include_role:
+        name: iptables
+      vars:
+        table: nat
+        chain: POSTROUTING
+        out_interface : "{{ dhcp_server_dev_out }}"
+        jump: MASQUERADE
+        state: present
+    - include_role:
+        name: iptables
+        tasks_from: iptables_state
+      vars:
+        state: saved
+        path: "{{ iptables_save_path }}"
+    - include_role:
+        name: systemd
+      vars:  
+        name: "{{ item }}"
+        state: restarted
+        enabled: yes
+        daemonReload: yes 
+      with_items:
+        - NetworkManager
+        - container-{{ dhcpd_name }}
+        - iptables

@@ -1,0 +1,7 @@
+---
+- name: Set deamon {{ name }} state {{ state }} enabled {{ enabled }} daemon-reload {{ daemonReload }}
+  systemd:
+    name: "{{ name }}"
+    state: "{{ state }}"
+    enabled: "{{ enabled }}"
+    daemon-reload: "{{ daemonReload }}"

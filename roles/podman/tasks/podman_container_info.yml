@@ -1,0 +1,5 @@
+---
+- name: Get container {{ name }} info
+  podman_container_info:
+    name: "{{ name }}"
+  register: checkContainer

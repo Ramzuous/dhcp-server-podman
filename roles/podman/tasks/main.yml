@@ -1,0 +1,14 @@
+---
+- name: podman {{ item.name }} image {{ item.image }} network {{ item.network }} state {{ item.state }} 
+  containers.podman.podman_container:
+    name: "{{ item.name }}"
+    image: "{{ item.image }}"
+    state: "{{ item.state }}"
+    network: "{{ item.network }}"
+    volume:
+      - "{{ item.dhcpd_volume_path }}:{{ item.dhcpd_volume_path }}"
+      - "{{ item.dhcpd_lease_path }}:{{ item.dhcpd_lease_path }}"
+    generate_systemd:
+      new: "{{ item.generate_systemd_new }}"
+      path: "{{ item.generate_systemd_path }}"
+      restart_policy: "{{ item.generate_systemd_restart_policy }}"
